@@ -100,6 +100,9 @@ namespace Yarn.Unity
         [Serializable]
         public class StringUnityEvent : UnityEvent<string> { }
 
+        [Serializable]
+        public class StringArrayUnityEvent : UnityEvent<string, List<string>, Action> { }
+
         /// <summary>
         /// A Unity event that is called when a node starts running.
         /// </summary>
@@ -159,6 +162,8 @@ namespace Yarn.Unity
         /// <seealso cref="AddCommandHandler(string, CommandHandler)"/>
         /// <seealso cref="YarnCommandAttribute"/>
         public StringUnityEvent onCommand;
+
+        public StringArrayUnityEvent onCommandWithArguments;
 
         /// <summary>
         /// Gets the name of the current node that is being run.
@@ -851,6 +856,8 @@ namespace Yarn.Unity
             var parts = SplitCommandText(command.Text);
             string commandName = parts.ElementAtOrDefault(0);
 
+            bool continueDialogue = true;
+
             switch (dispatchResult.Status) {
                 case CommandDispatchResult.StatusType.NoTargetFound:
                     Debug.LogError($"Can't call command {commandName}: failed to find a game object named {parts.ElementAtOrDefault(1)}", this);
@@ -867,6 +874,11 @@ namespace Yarn.Unity
                     if (onCommand != null && onCommand.GetPersistentEventCount() > 0) {
                         // We can invoke the event!
                         onCommand.Invoke(command.Text);
+                    } else if (onCommandWithArguments != null) {
+                        continueDialogue = false;
+                        var arguments = new List<string>();
+                        arguments.AddRange(parts);
+                        onCommandWithArguments.Invoke(commandName, arguments, () => ContinueDialogue(true));
                     } else {
                         // We're out of ways to handle this command! Log this as an
                         // error.
@@ -876,7 +888,10 @@ namespace Yarn.Unity
                 default:
                     throw new ArgumentOutOfRangeException($"Internal error: Unknown command dispatch result status {dispatchResult}");
             }
-            ContinueDialogue();
+            if (continueDialogue)
+            {
+                ContinueDialogue();
+            }
         }
 
         /// <summary>
